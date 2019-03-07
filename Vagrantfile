@@ -6,64 +6,66 @@
 # backwards compatibility). Please don't change it unless you know what
 # you're doing.
 Vagrant.configure("2") do |config|
-  # The most common configuration options are documented and commented below.
-  # For a complete reference, please see the online documentation at
-  # https://docs.vagrantup.com.
-
-  # Every Vagrant development environment requires a box. You can search for
-  # boxes at https://vagrantcloud.com/search.
   config.vm.box = "centos/7"
+  
+  config.vm.define "master" do |k3scluster|
+      k3scluster.vm.hostname = "master.k3s"
+      k3scluster.vm.synced_folder ".", "/vagrant", type:"virtualbox"
+      k3scluster.vm.network :forwarded_port, id: "ssh", guest: 22, host: 2222
+      k3scluster.vm.network "private_network", ip: "192.168.33.11", virtualbox__intnet: true
+      k3scluster.vm.provider "virtualbox" do |vb|
+        vb.memory = "1024"
+        vb.name = "k3s-master"
+      end
+      k3scluster.vm.provision "shell", inline: <<-SHELL
+        curl -sfL https://get.k3s.io | sh -
 
-  # Disable automatic box update checking. If you disable this, then
-  # boxes will only be checked for updates when the user runs
-  # `vagrant box outdated`. This is not recommended.
-  # config.vm.box_check_update = false
-
-  # Create a forwarded port mapping which allows access to a specific port
-  # within the machine from a port on the host machine. In the example below,
-  # accessing "localhost:8080" will access port 80 on the guest machine.
-  # NOTE: This will enable public access to the opened port
-  # config.vm.network "forwarded_port", guest: 80, host: 8080
-
-  # Create a forwarded port mapping which allows access to a specific port
-  # within the machine from a port on the host machine and only allow access
-  # via 127.0.0.1 to disable public access
-  # config.vm.network "forwarded_port", guest: 80, host: 8080, host_ip: "127.0.0.1"
-
-  # Create a private network, which allows host-only access to the machine
-  # using a specific IP.
-  # config.vm.network "private_network", ip: "192.168.33.10"
-
-  # Create a public network, which generally matched to bridged network.
-  # Bridged networks make the machine appear as another physical device on
-  # your network.
-  # config.vm.network "public_network"
-
-  # Share an additional folder to the guest VM. The first argument is
-  # the path on the host to the actual folder. The second argument is
-  # the path on the guest to mount the folder. And the optional third
-  # argument is a set of non-required options.
-  # config.vm.synced_folder "../data", "/vagrant_data"
-
-  # Provider-specific configuration so you can fine-tune various
-  # backing providers for Vagrant. These expose provider-specific options.
-  # Example for VirtualBox:
-  #
-  config.vm.provider "virtualbox" do |vb|
-  #   # Display the VirtualBox GUI when booting the machine
-  #   vb.gui = true
-  #
-  #   # Customize the amount of memory on the VM:
-     vb.memory = "2048"
+        NODE_TOKEN="/var/lib/rancher/k3s/server/node-token"
+        while [ ! -e ${NODE_TOKEN} ]
+        do
+            sleep 1
+        done
+        cat ${NODE_TOKEN}
+        cp ${NODE_TOKEN} /vagrant/
+      SHELL
   end
-  #
-  # View the documentation for the provider you are using for more
-  # information on available options.
+  
+  config.vm.define "node01" do |k3scluster|
+      k3scluster.vm.hostname = "node01.k3s"
+      k3scluster.vm.synced_folder ".", "/vagrant", type:"virtualbox"
+      k3scluster.vm.network :forwarded_port, id: "ssh", guest: 22, host: 2223
+      k3scluster.vm.network "private_network", ip: "192.168.33.12", virtualbox__intnet: true
+      k3scluster.vm.provider "virtualbox" do |vb|
+        vb.memory = "1024"
+        vb.name = "k3s-node01"
+      end
+      k3scluster.vm.provision "shell", inline: <<-SHELL
+        curl -sfL https://get.k3s.io | sh -
+        systemctl stop k3s
+        sed -i -e "s#k3s server#k3s agent --server https://192.168.33.11:6443 --token $(cat /vagrant/node-token)#g" /etc/systemd/system/k3s.service
+        systemctl daemon-reload
+        systemctl start k3s
+      SHELL
+  end
+ 
+  config.vm.define "node02" do |k3scluster|
+      k3scluster.vm.hostname = "node02.k3s"
+      k3scluster.vm.synced_folder ".", "/vagrant", type:"virtualbox"
 
-  # Enable provisioning with a shell script. Additional provisioners such as
-  # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
-  # documentation for more information about their specific syntax and use.
-  config.vm.provision "shell", inline: <<-SHELL
-    curl -sfL https://get.k3s.io | sh -
-  SHELL
+      k3scluster.vm.network :forwarded_port, id: "ssh", guest: 22, host: 2224
+      k3scluster.vm.network "private_network", ip: "192.168.33.13", virtualbox__intnet: true
+      k3scluster.vm.provider "virtualbox" do |vb|
+        vb.memory = "1024"        
+        vb.name = "k3s-node02"
+      end
+      k3scluster.vm.provision "shell", inline: <<-SHELL
+        curl -sfL https://get.k3s.io | sh -
+        systemctl stop k3s
+        sed -i -e "s#k3s server#k3s agent --server https://192.168.33.11:6443 --token $(cat /vagrant/node-token)#g" /etc/systemd/system/k3s.service
+        systemctl daemon-reload
+        systemctl start k3s
+        rm -f /vagrant/node-token
+      SHELL
+  end
+
 end
