@@ -13,7 +13,7 @@ Vagrantを用いてKubernetes環境（k3s）を簡単に作成します。
 # 導入
 以下を実行すると、CentOS 7がk3sが導入された状態で起動します。
 ```
-git clone https://github.com/k8sinfo/k3s-vagrant.git && cd k3s-vagrant && vagrant up && vagrant ssh
+git clone -b minimal https://github.com/k8sinfo/k3s-vagrant.git && cd k3s-vagrant && vagrant up && vagrant ssh
 ```
 
 # 動作確認
