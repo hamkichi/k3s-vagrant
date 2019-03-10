@@ -5,6 +5,7 @@ Vagrantを用いてKubernetes環境（k3s）を簡単に作成します。
 以下は事前に導入してあるものとします。
 - VirtualBox
 - Vagrant
+- Vagrant vagrant-vbguest プラグイン (`vagrant plugin install vagrant-vbguest`)
 - git
 
 動作はWindwos 10で確認していますが、macOSでも同様に動作すると思われます。
